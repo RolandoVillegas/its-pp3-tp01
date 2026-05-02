@@ -7,6 +7,7 @@ Para cumplir con este trabajo hemos utilizado el Sistema de Gestión de Guardias
 
 Esta aplicación tiene los endpoints necesarios para implementar una defensa contra ataques DDoS, además de contar con un registro de eventos (logging) corriendo con RabbitMQ para registrar las operaciones de la API.
 
+---
 
 # Sobre el SGGM – Sistema de Gestión de Guardias Médicas Versión 01 
 Backend desarrollado por **Rolando Villegas** y **Augusto Rodríguez** para la materia Práctica Profesionalizante II, de la carrera Técnico Superior en Desarrollo de Software Full Stack del Instituto Técnico Superior Cipolletti (ITS).
