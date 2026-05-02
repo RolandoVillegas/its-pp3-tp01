@@ -1,0 +1,39 @@
+{
+  "name": "sistema-gestion-guardias-medicas",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "** Sistema de Gestión de Guardias Médicas **",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "amqplib": "^0.10.9",
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "joi": "^18.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.15.3",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "typeorm": "^0.3.27",
+    "uuid": "^13.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RolandoVillegas/sistema-gestion-guardias-medicas.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/RolandoVillegas/sistema-gestion-guardias-medicas/issues"
+  },
+  "homepage": "https://github.com/RolandoVillegas/sistema-gestion-guardias-medicas#readme",
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}

@@ -1,0 +1,823 @@
+{
+	"info": {
+		"_postman_id": "47c77b0c-6adb-4209-b3ff-9eb5bf3e497d",
+		"name": "PP SGGM",
+		"description": "# Sistema de Gestión de Guardias Médicas (SGGM)\n\nEl **Sistema de Gestión de Guardias Médicas (SGGM)** es una aplicación desarrollada para administrar y registrar las guardias realizadas por los profesionales de la salud en los distintos servicios del **Sanatorio Río Negro** y sus sedes asociadas.\n  \nEl sistema centraliza la información de profesionales, servicios, turnos y novedades de guardias, garantizando trazabilidad, control de accesos y coherencia con el sistema ERP **Datatech**, con el cual se integra.\n\n---\n\n## Arquitectura general\n\nEl SGGM expone una **API RESTful** que permite la gestión de los recursos principales del sistema:\n\n- **Profesionales:** maestro de profesionales habilitados para realizar guardias.  \n- **Novedades:** registro de las guardias efectivamente realizadas (inicio, fin, duración y observaciones).  \n- **Servicios:** definición de las áreas o unidades donde se realizan guardias, con control de fechas de cierre.  \n- **Servicios DTT:** referencia a los servicios definidos en el sistema Datatech.  \n- **Usuarios:** registro y autenticación de usuarios del sistema, con roles y permisos diferenciados.\n\nCada módulo implementa un **CRUD completo o parcial**, según la lógica de negocio. Por ejemplo, los módulos *Profesional* y *Servicio* implementan eliminación lógica (o no permiten eliminación directa), en tanto que *Novedad* mantiene trazabilidad de altas, modificaciones y bajas.\n\n---\n\n## Seguridad y autenticación\n\nEl sistema utiliza **autenticación basada en tokens JWT**. Cada petición que requiera autenticación debe incluir el encabezado:\n\n```\nAuthorization: Bearer {{jwt}}\n```\n\nLos roles disponibles en el sistema determinan el nivel de acceso a los endpoints:\n\n| Rol | Descripción | Nivel de acceso |\n|-----|--------------|----------------|\n| `admin` | Administración total del sistema | Todos los módulos |\n| `rrhh` | Gestión de personal y guardias | Profesionales, Novedades, Servicios |\n| `coordinador` | Gestión operativa por servicio | Novedades y Servicios |\n| `administrativo` | Consulta de información general | Lectura de Profesionales y Novedades |\n| `user` | Usuario básico sin privilegios administrativos | Acceso restringido |\n\nLos tokens incluyen en su *payload* el identificador y rol del usuario autenticado y su validez temporal se controla mediante las variables de entorno definidas en el servidor (`JWT_EXPIRES`, `JWT_SECRET`, etc.).\n\n---\n\n## Convenciones generales\n\n- Todas las respuestas de la API devuelven un objeto JSON con la forma:  \n  ```json\n  { \"ok\": true | false, \"data\"?: {}, \"message\"?: \"\", \"error\"?: {} }\n  ```\n- Los errores de validación se generan mediante el middleware de **Joi**, con mensajes descriptivos.  \n- Las fechas se manejan en formato **ISO 8601** (`YYYY-MM-DDTHH:mm:ss.sssZ`).  \n- Las eliminaciones son **lógicas**, salvo en los casos en que se indique lo contrario.  \n- Los registros incluyen trazabilidad de usuario y fecha de creación, modificación o eliminación.  \n- Todas las operaciones registran eventos de auditoría mediante el sistema interno de **logging**, que registra la acción, el usuario y la hora de ejecución.\n\n---\n\n## Uso en Postman\n\n1. En la pestaña **Variables de entorno**, definir:\n   - `base_url`: URL base del servidor (por ejemplo, `http://localhost:3001` o el dominio del VPS).\n   - `jwt`: token de autenticación obtenido al realizar `POST /login`.\n\n2. Autenticarse con el endpoint **`POST /login`** del módulo `Usuario` y copiar el valor del campo `token`.\n\n3. Ejecutar los endpoints de los distintos módulos según el rol del usuario autenticado.\n\n---\n\n## Objetivo funcional\n\nEl objetivo del SGGM es proporcionar una herramienta unificada y segura para:\n- Registrar la actividad de los profesionales de guardia.  \n- Controlar horarios, duración y observaciones de las guardias realizadas.  \n- Facilitar la gestión operativa y administrativa de los servicios.  \n- Integrarse con los datos maestros del Sistema Datatech, asegurando consistencia y control institucional.\n",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "44031312",
+		"_collection_link": "https://rolandovillegas.postman.co/workspace/Rolando-Villegas's-Workspace~84408fc5-f600-4224-88f9-69eb20e9ac48/collection/44031312-47c77b0c-6adb-4209-b3ff-9eb5bf3e497d?action=share&source=collection_link&creator=44031312"
+	},
+	"item": [
+		{
+			"name": "Profesionales",
+			"item": [
+				{
+					"name": "Obtener todos los profesionales",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/profesionales",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"profesionales"
+							]
+						},
+						"description": "**Descripción:**  \nObtiene la lista completa de profesionales activos e inactivos. El resultado está ordenado por el campo `PRF` ascendente.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `admin`, `rrhh`, `administrativo`, `coordinador`.\n\n**URL:**\n\n```\nGET {{base_url}}/profesionales\n\n ```\n\n**Parámetros:**  \nNo requiere.\n\n**Respuestas:**\n\n- { \"ok\": true, \"data\": \\[ { \"PRF\": \"100\", \"NOM\": \"PEREZ, JUAN\", \"ACT\": \"S\" }, { \"PRF\": \"101\", \"NOM\": \"GARCIA, ANA\", \"ACT\": \"N\" } \\]}\n    \n- `401 Unauthorized` si no se envía un JWT válido.\n    \n- `403 Forbidden` si el rol no tiene acceso."
+					},
+					"response": []
+				},
+				{
+					"name": "Crear un profesional",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"PRF\": \"100\",\r\n    \"NOM\": \"PEREZ, JUAN\",\r\n    \"ACT\": \"S\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/profesionales",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"profesionales"
+							]
+						},
+						"description": "**Descripción:**  \nCrea un nuevo profesional.  \nEl cuerpo de la petición se valida con `createProfesionalSchema` (Joi).\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `admin`, `rrhh`.\n\n**URL:**  \n```\nPOST {{base_url}}/profesionales\n```\n\n**Body (JSON):**\n| Campo | Tipo | Requerido | Valores válidos | Descripción |\n|--------|------|------------|----------------|--------------|\n| PRF | string | Sí | — | Código único del profesional (máx. 7 caracteres). |\n| NOM | string | Sí | — | Apellido y nombre del profesional (máx. 40 caracteres). |\n| ACT | string | Sí | `\"S\"` o `\"N\"` | Indica si el profesional está activo. |\n\n**Ejemplo:**\n```json\n{\n  \"PRF\": \"103\",\n  \"NOM\": \"FERNANDEZ, LUCAS\",\n  \"ACT\": \"S\"\n}\n```\n\n**Respuestas:**\n- `201 Created`\n  ```json\n  {\n    \"ok\": true,\n    \"message\": \"Profesional creado.\",\n    \"data\": {\n      \"PRF\": \"103\",\n      \"NOM\": \"FERNANDEZ, LUCAS\",\n      \"ACT\": \"S\"\n    }\n  }\n  ```\n- `400 Bad Request` (validación Joi)\n  ```json\n  {\n    \"ok\": false,\n    \"error\": {\n      \"message\": \"\\\"ACT\\\" must be one of [S, N]\"\n    }\n  }\n  ```"
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener un profesional",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/profesionales/{{ID_PROFESIONAL}}",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"profesionales",
+								"{{ID_PROFESIONAL}}"
+							]
+						},
+						"description": "**Descripción:**  \nDevuelve la información completa del profesional identificado por `PRF`.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `admin`, `rrhh`, `administrativo`, `coordinador`.\n\n**URL:**\n\n```\nGET {{base_url}}/profesionales/:PRF\n\n ```\n\n**Path params:**  \n| Campo | Tipo | Requerido | Descripción |  \n|-------|------|------------|--------------|  \n| PRF | string | Sí | Código del profesional (máx. 7 caracteres) |\n\n**Respuestas:**\n- `200 OK`\n  ```json\n  {\n    \"ok\": true,\n    \"data\": { \"PRF\": \"100\", \"NOM\": \"PEREZ, JUAN\", \"ACT\": \"S\" }\n  }\n  ```\n- `404 Not Found`\n  ```json\n  {\n    \"ok\": false,\n    \"error\": { \"message\": \"Profesional no encontrado.\" }\n  }\n  ```"
+					},
+					"response": []
+				},
+				{
+					"name": "Modificación parcial de un profesional",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"NOM\": \"PEREZ, JUAN CARLOS\",\r\n    \"ACT\": \"S\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/profesionales/{{ID_PROFESIONAL}}",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"profesionales",
+								"{{ID_PROFESIONAL}}"
+							]
+						},
+						"description": "**Descripción:**  \nActualiza parcialmente los datos de un profesional.  \nSe valida con `updateProfesionalSchema`.  \nNo es posible enviar un PATCH vacío (`min(1)`).\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `admin`, `rrhh`.\n\n**URL:**  \n```\nPATCH {{base_url}}/profesionales/:PRF\n```\n\n**Path params:**\n| Campo | Tipo | Requerido | Descripción |\n|-------|------|------------|--------------|\n| PRF | string | Sí | Código del profesional. |\n\n**Body (JSON):**\n| Campo | Tipo | Requerido | Valores válidos | Descripción |\n|--------|------|------------|----------------|--------------|\n| NOM | string | Opcional | — | Nuevo nombre del profesional. |\n| ACT | string | Opcional | `\"S\"` o `\"N\"` | Estado de actividad. |\n\n**Ejemplo:**\n```json\n{\n  \"NOM\": \"PEREZ, JUAN CARLOS\",\n  \"ACT\": \"N\"\n}\n```\n\n**Respuestas:**\n- `200 OK`\n  ```json\n  {\n    \"ok\": true,\n    \"message\": \"Profesional actualizado\",\n    \"data\": {\n      \"PRF\": \"100\",\n      \"NOM\": \"PEREZ, JUAN CARLOS\",\n      \"ACT\": \"N\"\n    }\n  }\n  ```\n- `400 Bad Request` si no se envían campos válidos.\n  ```json\n  {\n    \"ok\": false,\n    \"error\": {\n      \"message\": \"\\\"ACT\\\" must be one of [S, N]\"\n    }\n  }\n  ```\n- `404 Not Found` si el profesional no existe.\n  ```json\n  {\n    \"ok\": false,\n    \"error\": { \"message\": \"Profesional no encontrado.\" }\n  }\n  ```\n"
+					},
+					"response": []
+				}
+			],
+			"description": "CRUD parcial para la entidad **Profesional**, correspondiente al maestro de profesionales del sistema SGGM. Simula ser tabla de profesionales SRN.dbo.CLIPRF del sistema ERP de la empresa (MS SQL). No se implementa el método DELETE porque esa operación es responsabilidad del ERP.\n\nCada profesional se identifica por el campo `PRF` (código interno de hasta 7 caracteres).\n\n## Convenciones comunes\n\n- Todas las respuestas exitosas incluyen:\n    \n    ``` json\n        { \"ok\": true, \"data\": {...} }\n    \n     ```\n    \n\n```\no bien\n``` json\n{ \"ok\": true, \"message\": \"...\", \"data\": {...} }\n\n ```\n\n\\`\\`\\`\n\n- Los errores de validación siguen el formato de Joi.\n    \n- El campo `ACT` representa **actividad lógica**:\n    \n    - `\"S\"` → activo\n        \n    - `\"N\"` → inactivo\n        \n- No existe endpoint `DELETE`: las bajas se gestionan desde el ERP o mediante el campo `ACT`."
+		},
+		{
+			"name": "Novedades",
+			"item": [
+				{
+					"name": "Obtener todas las novedades",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/novedades",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"novedades"
+							]
+						},
+						"description": "**Descripción:**  \nDevuelve todas las novedades activas (no eliminadas) ordenadas por fecha y hora de inicio de guardia, en orden descendente.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `admin`, `rrhh`, `administrativo`, `coordinador`.\n\n**URL:**\n\n```\nGET {{base_url}}/novedades\n\n ```\n\n**Respuestas:**\n\n- `200 OK`\n    \n    ``` json\n    {\n      \"ok\": true,\n      \"data\": [\n        {\n          \"novedad_id\": 1,\n          \"id_profesional\": \"100\",\n          \"fechahora_inicio_guardia\": \"2025-07-03T08:00:00.000Z\",\n          \"fechahora_fin_guardia\": \"2025-07-03T20:00:00.000Z\",\n          \"horas_trabajadas\": 12,\n          \"observaciones\": \"Guardia normal\",\n          \"servicio_id\": 10\n        }\n      ]\n    }\n    \n     ```\n    \n- `401 Unauthorized` si falta o expira el token.\n    \n- `403 Forbidden` si el rol no está autorizado."
+					},
+					"response": []
+				},
+				{
+					"name": "Crear una novedad",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id_profesional\": \"100\",\r\n    \"fechahora_inicio_guardia\": \"2025-09-30T08:00:00.000Z\",\r\n    \"fechahora_fin_guardia\": \"2025-09-30T08:14:00.000Z\",\r\n    \"observaciones\": \"Turno mañana\",\r\n    \"servicio_id\":\"1\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/novedades",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"novedades"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener una novedad",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/novedades/{{ID_NOVEDAD}}",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"novedades",
+								"{{ID_NOVEDAD}}"
+							]
+						},
+						"description": "**Descripción:**  \nObtiene una novedad específica por su identificador único.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `admin`, `rrhh`, `administrativo`, `coordinador`.\n\n**URL:**\n\n```\nGET {{base_url}}/novedades/:id\n\n ```\n\n**Parámetros de ruta:**  \n| Campo | Tipo | Requerido | Descripción |  \n|-------|------|------------|-------------|  \n| id | number | Sí | Identificador de la novedad. |\n\n**Respuestas:**\n\n- `200 OK`\n    \n    ``` json\n    {\n      \"ok\": true,\n      \"data\": {\n        \"novedad_id\": 1,\n        \"id_profesional\": \"100\",\n        \"fechahora_inicio_guardia\": \"2025-07-03T08:00:00.000Z\",\n        \"fechahora_fin_guardia\": \"2025-07-03T20:00:00.000Z\",\n        \"horas_trabajadas\": 12,\n        \"observaciones\": \"Guardia normal\",\n        \"servicio_id\": 10\n      }\n    }\n    \n     ```\n    \n- `404 Not Found`\n    \n    ``` json\n    {\n      \"ok\": false,\n      \"error\": { \"message\": \"Novedad no encontrada.\" }\n    }\n    \n     ```"
+					},
+					"response": []
+				},
+				{
+					"name": "Modificación parcial de una novedad",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id_profesional\": \"100\",\r\n    \"observaciones\": \"Compensa horass faltantes.\",\r\n    \"fechahora_inicio_guardia\": \"2025-09-30T08:00:00.000Z\",\r\n    \"fechahora_fin_guardia\": \"2025-09-30T08:00:00.000Z\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/novedades/{{ID_NOVEDAD}}",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"novedades",
+								"{{ID_NOVEDAD}}"
+							]
+						},
+						"description": "**Descripción:**  \nModifica parcialmente los datos de una novedad existente.  \nValida los campos enviados con `updateNovedadSchema`.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `admin`, `rrhh`, `coordinador`.\n\n**URL:**\n\n```\nPATCH {{base_url}}/novedades/:id\n\n ```\n\n**Parámetros de ruta:**  \n| Campo | Tipo | Requerido | Descripción |  \n|-------|------|------------|-------------|  \n| id | number | Sí | Identificador de la novedad. |\n\n**Cuerpo (JSON):**  \n| Campo | Tipo | Requerido | Descripción |  \n|--------|------|-----------|--------------|  \n| id_profesional | string | No | Nuevo código de profesional (si cambia). |  \n| fechahora_inicio_guardia | string (ISO date) | No | Nueva fecha y hora de inicio. |  \n| fechahora_fin_guardia | string (ISO date) | No | Nueva fecha y hora de finalización. |  \n| observaciones | string | No | Observaciones o comentarios. |  \n| servicio_id | number | No | Nuevo servicio asociado. |\n\n**Ejemplo de cuerpo:**\n\n``` json\n{\n  \"observaciones\": \"Guardia extendida hasta las 22:00\",\n  \"fechahora_fin_guardia\": \"2025-07-03T22:00:00.000Z\"\n}\n\n ```\n\n**Respuestas:**\n\n- `200 OK`\n    \n    ``` json\n    {\n      \"ok\": true,\n      \"message\": \"Novedad actualizada.\",\n      \"data\": {\n        \"novedad_id\": 1,\n        \"horas_trabajadas\": 14,\n        \"fechahora_fin_guardia\": \"2025-07-03T22:00:00.000Z\"\n      }\n    }\n    \n     ```\n    \n- `400 Bad Request` si el profesional no existe o la validación de fechas falla.\n    \n- `404 Not Found` si la novedad no existe."
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar novedad",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/novedades/{{ID_NOVEDAD}}",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"novedades",
+								"{{ID_NOVEDAD}}"
+							]
+						},
+						"description": "**Descripción:**  \nElimina una novedad existente (borrado lógico).  \nMarca la novedad como `eliminado = true` y registra la fecha y el usuario que la eliminó.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `admin`, `rrhh`, `coordinador`.\n\n**URL:**\n\n```\nDELETE {{base_url}}/novedades/:id\n\n ```\n\n**Parámetros de ruta:**  \n| Campo | Tipo | Requerido | Descripción |  \n|-------|------|------------|-------------|  \n| id | number | Sí | Identificador de la novedad. |\n\n**Respuestas:**\n\n- `200 OK`\n    \n    ``` json\n    {\n      \"ok\": true,\n      \"message\": \"Novedad eliminada.\"\n    }\n    \n     ```\n    \n- `404 Not Found`\n    \n    ``` json\n    {\n      \"ok\": false,\n      \"error\": { \"message\": \"Novedad no encontrada.\" }\n    }\n    \n     ```"
+					},
+					"response": []
+				}
+			],
+			"description": "CRUD para la entidad **Novedad**, donde se gestionan los registros de las guardias realizadas por los profesionales dentro de los servicios activos.\n\nCada novedad representa un turno o guardia trabajada, con información de la fecha de inicio y finalización, su duración, el día de la semana, el servicio asociado y un campo donde el usuario puede escribir observaciones.\n\n## Convenciones comunes\n\n- Todas las rutas devuelven un objeto con la forma:\n    \n    ``` json\n      { \"ok\": true | false, \"data\"?: {}, \"message\"?: \"\", \"error\"?: {} }\n    \n     ```\n    \n- Las validaciones de fechas usan formato ISO (`YYYY-MM-DDTHH:mm:ss.sssZ`).\n    \n- No se realiza eliminación física de registros; el campo `eliminado` se usa como marca lógica.\n    \n- El campo `horas_trabajadas` se calcula automáticamente a partir de las fechas de inicio y fin."
+		},
+		{
+			"name": "Usuarios",
+			"item": [
+				{
+					"name": "Creación de un usuario",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"email\": \"rvillegas@ejemplo.com\",\r\n  \"contraseña\": \"123456789\",\r\n  \"nombre\": \"Rolando\",\r\n  \"apellido\": \"Villegas\",\r\n  \"role\": \"coordinador\"\r\n}\r\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/register",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"register"
+							]
+						},
+						"description": "**Descripción:**  \nCrea un nuevo usuario a partir de los datos provistos. Valida el cuerpo con `createUsuarioSchema` (Joi) y rechaza correos ya registrados.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `admin`, `rrhh`.\n\n**URL:**\n\n```\nPOST {{base_url}}/register\n\n ```\n\n**Cuerpo (JSON):**  \n| Campo | Tipo | Requerido | Valores válidos | Descripción |  \n|------|------|-----------|-----------------|-------------|  \n| contraseña | string | sí | 8–255 caracteres | contraseña del usuario (se almacena con hash _bcrypt_). |  \n| email | string | sí | 2–30 caracteres | correo electrónico; debe ser único. |  \n| role | string | sí | `admin` | `user` | `coordinador` | `administrativo` | `rrhh` | rol del usuario. |  \n| nombre | string | no | — | nombre |  \n| apellido | string | no | — | apellido |  \n| Creado | date | no | ISO 8601 | fecha de creación. |\n\n**Ejemplo de petición:**\n\n``` json\n{\n  \"email\": \"ana.garcia@ejemplo.com\",\n  \"contraseña\": \"Secreta2025\",\n  \"role\": \"admin\",\n  \"nombre\": \"Ana\",\n  \"apellido\": \"García\"\n}\n\n ```\n\n**Respuestas:**\n\n- `201 Created`\n    \n    ``` json\n      {\n        \"ok\": true,\n        \"message\": \"Usuario creado con exito.\",\n        \"usuario\": {\n          \"id\": 7,\n          \"email\": \"ana.garcia@ejemplo.com\",\n          \"role\": \"admin\",\n          \"nombre\": \"Ana\",\n          \"apellido\": \"García\"\n        }\n      }\n    \n     ```\n    \n- `409 Conflict` Si el email ya existe.\n    \n    ``` json\n      {\n        \"ok\": false,\n        \"error\": { \"message\": \"Este Email ya ha sido registrado.\" }\n      }\n    \n     ```\n    \n- `400 Bad Request` Si falla la validación o se produce un error al crear.\n    \n    ``` json\n      {\n        \"ok\": false,\n        \"error\": {\n          \"message\": \"El usuario no pudo ser creado.\",\n          \"detail\": \"detalle del error\"\n        }\n      }\n    \n     ```"
+					},
+					"response": []
+				},
+				{
+					"name": "Login de usuario",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const jsonData = pm.response.json();\r",
+									"\r",
+									"if (jsonData?.metadata?.token) {\r",
+									"  pm.environment.set(\"token\", jsonData.metadata.token);\r",
+									"  console.log(\"El token se guardó en la variable de entorno.\");\r",
+									"} else {\r",
+									"  console.warn(\"No se encontró un token en la respuesta.\");\r",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"email\": \"rvillegas@ejemplo.com\",\r\n  \"contraseña\":\"123456789\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/login",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"login"
+							]
+						},
+						"description": "**Descripción:**  \nInicia sesión con email y contraseña. valida el cuerpo con `loginUsuario` (Joi) y, si las credenciales son correctas, devuelve un **token JWT** y los datos básicos del usuario.\n\n**Autenticación:** no requiere.\n\n**URL:**  \n```\nPOST {{base_url}}/login\n```\n\n**Cuerpo (JSON):**  \n| Campo | Tipo | Requerido | Descripción |\n|------|------|-----------|-------------|\n| email | string (email) | sí | correo registrado del usuario. |\n| contraseña | string | sí | contraseña del usuario. |\n\n**Ejemplo de petición:**  \n```json\n{ \"email\": \"ana.garcia@ejemplo.com\", \"contraseña\": \"Secreta2025\" }\n```\n\n**Respuestas:**  \n- `200 OK`  \n  ```json\n  {\n    \"ok\": true,\n    \"message\": \"Login\",\n    \"metadata\": {\n      \"usuario\": {\n        \"id\": 7,\n        \"role\": \"admin\",\n        \"email\": \"ana.garcia@ejemplo.com\",\n        \"nombre\": \"Ana\",\n        \"apellido\": \"García\"\n      },\n      \"token\": \"jwt.aqui\"\n    }\n  }\n  ```\n  Observaciones: el *payload* del token incluye `id` y `role`. La expiración utiliza `JWT_EXPIRES` de la configuración del sistema.\n- `401 Unauthorized` si las credenciales son inválidas  \n  ```json\n  { \"ok\": false, \"error\": { \"message\": \"Credenciales inválidas\" } }\n  ```\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener todos los usuarios",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/users",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"users"
+							]
+						},
+						"description": "**Descripción:**  \nDevuelve el listado completo de usuarios.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).\n\n**URL:**\n\n```\nGET {{base_url}}/users\n\n ```\n\n**Respuestas:**\n\n- `200 OK`\n    \n    ``` json\n    { \"ok\": true, \"message\": \"aprovado\", \"data\": [ /* usuarios */ ] }\n    \n     ```\n    \n- `401 Unauthorized` si falta o expira el token."
+					},
+					"response": []
+				}
+			],
+			"description": "Gestión del registro, la autenticación y la consulta de usuarios del sistema.\n\nLas contraseñas se almacenan cifradas con _bcrypt_ y la autenticación se realiza mediante **JWT**.\n\n## Convenciones y seguridad\n\n- autenticación: JWT en el encabezado `Authorization: Bearer {{jwt}}` tras el _login_.\n    \n- contraseñas: se almacenan con _bcrypt_ (factor de costo 12 según la implementación actual).\n    \n- unicidad de email: dos usuarios no pueden compartir el mismo correo.\n    \n- formato de error: `{ \"ok\": false, \"error\": { \"message\": \"...\", \"detail\"?: \"...\" } }`."
+		},
+		{
+			"name": "Servicios",
+			"item": [
+				{
+					"name": "Crear nuevos servicios",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"nombre\": \"Guardia de Adultos\",\r\n  \"ubicacion\": \"SRN Cipolletti\",\r\n  \"servicio_cod_datatech\": \"GU\",\r\n  \"fecha_cierre\": \"2025-09-30T07:59:59\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/servicios",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"servicios"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener todos los servicios",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/servicios",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"servicios"
+							]
+						},
+						"description": "**Descripción:**  \nObtiene el listado completo de servicios registrados.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `coordinador`, `admin`, `rrhh`.\n\n**URL:**  \n```\nGET {{base_url}}/servicios\n```\n\n**Respuestas:**  \n- `200 OK`\n  ```json\n  {\n    \"ok\": true,\n    \"message\": \"Servicios encontrados\",\n    \"data\": [\n      {\n        \"servicio_id\": 1,\n        \"nombre\": \"Clínica médica\",\n        \"ubicacion\": \"SRN Cipolletti\",\n        \"fecha_cierre\": \"2025-07-15T23:59:59.000Z\",\n        \"resumen\": \"Creado el 3/7/2025 12:00 - Fecha límite: 15/7/2025 23:59\"\n      }\n    ]\n  }\n  ```\n- `401 Unauthorized` si falta o expira el token.  \n- `403 Forbidden` si el rol no está autorizado.\n\n---\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener un servicio",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/servicios/1",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"servicios",
+								"1"
+							]
+						},
+						"description": "**Descripción:**  \nDevuelve la información de un servicio específico.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `coordinador`, `admin`, `rrhh`.\n\n**URL:**  \n```\nGET {{base_url}}/servicios/:id\n```\n\n**Parámetros de ruta:**  \n| Campo | Tipo | Requerido | Descripción |\n|-------|------|------------|-------------|\n| id | number | Sí | Identificador del servicio. |\n\n**Respuestas:**  \n- `200 OK`\n  ```json\n  {\n    \"ok\": true,\n    \"message\": \"Servicio encontrado\",\n    \"data\": {\n      \"servicio_id\": 1,\n      \"nombre\": \"Clínica médica\",\n      \"ubicacion\": \"SRN Cipolletti\",\n      \"fecha_cierre\": \"2025-07-15T23:59:59.000Z\",\n      \"resumen\": \"Creado el 3/7/2025 12:00 - Fecha límite: 15/7/2025 23:59\"\n    }\n  }\n  ```\n- `404 Not Found`\n  ```json\n  {\n    \"ok\": false,\n    \"error\": { \"message\": \"Servicio no encontrado\" }\n  }\n  ```\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Modificación parcial de un servicio",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"fecha_cierre\": \"2025-09-29T07:59:59\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/servicios/{{ID_SERVICIO}}",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"servicios",
+								"{{ID_SERVICIO}}"
+							]
+						},
+						"description": "**Descripción:**  \nActualiza parcialmente los datos de un servicio. Solo se modifican los campos enviados en el cuerpo.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `coordinador`, `admin`, `rrhh`.\n\n**URL:**  \n```\nPATCH {{base_url}}/servicios/:id\n```\n\n**Parámetros de ruta:**  \n| Campo | Tipo | Requerido | Descripción |\n|-------|------|------------|-------------|\n| id | number | Sí | Identificador del servicio. |\n\n**Cuerpo (JSON):**  \nPuede incluir uno o varios campos de los definidos en la entidad `Servicio`.  \nEjemplo:\n```json\n{\n  \"nombre\": \"Clínica médica - Turno noche\",\n  \"fecha_cierre\": \"2025-07-20T23:59:59.000Z\"\n}\n```\n\n**Respuestas:**  \n- `200 OK`\n  ```json\n  {\n    \"ok\": true,\n    \"message\": \"Servicio actualizado\",\n    \"data\": {\n      \"servicio_id\": 1,\n      \"nombre\": \"Clínica médica - Turno noche\",\n      \"fecha_cierre\": \"2025-07-20T23:59:59.000Z\"\n    }\n  }\n  ```\n- `404 Not Found`\n  ```json\n  {\n    \"ok\": false,\n    \"error\": { \"message\": \"Servicio no encontrado\" }\n  }\n  ```\n- `500 Internal Server Error` si ocurre un error inesperado."
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar servicio",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/servicios/{{ID_SERVICIO}}",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"servicios",
+								"{{ID_SERVICIO}}"
+							]
+						},
+						"description": "**Descripción:**  \nRealiza una eliminación lógica (soft delete) del servicio.  \nMarca el campo `eliminado = true` sin eliminar físicamente el registro.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `coordinador`, `admin`, `rrhh`.\n\n**URL:**  \n```\nDELETE {{base_url}}/servicios/:id\n```\n\n**Parámetros de ruta:**  \n| Campo | Tipo | Requerido | Descripción |\n|-------|------|------------|-------------|\n| id | number | Sí | Identificador del servicio. |\n\n**Respuestas:**  \n- `200 OK`\n  ```json\n  {\n    \"ok\": true,\n    \"message\": \"Servicio eliminado\"\n  }\n  ```\n- `404 Not Found`\n  ```json\n  {\n    \"ok\": false,\n    \"error\": { \"message\": \"Servicio no encontrado\" }\n  }\n  ```\n- `500 Internal Server Error` si ocurre un error durante la eliminación.\n"
+					},
+					"response": []
+				}
+			],
+			"description": "El módulo **Servicios** permite administrar los servicios del sanatorio donde se registran guardias. Entre los datos requeridos se incluye el nombre del servicio, su ubicación, la fecha de cierre y un código de referencia a la tabla de servicios del ERP.\n  \nCada servicio tiene una fecha de cierre que define hasta cuándo pueden cargarse novedades asociadas.\n\n## Convenciones comunes\n- Todas las respuestas exitosas incluyen:  \n  ```json\n  { \"ok\": true, \"message\": \"...\", \"data\": {...} }\n  ```\n- Las fechas se devuelven en formato ISO (`YYYY-MM-DDTHH:mm:ss.sssZ`).\n- El borrado es **lógico**, no se elimina el registro físico."
+		},
+		{
+			"name": "ServiciosDTT",
+			"item": [
+				{
+					"name": "Creación de los ServiciosDTT",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"SER\": \"GU\",\r\n  \"DES\":\"Guardia Adultos SRN Cipolletti\",\r\n  \"ACT\":\"S\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/servicios-dtt",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"servicios-dtt"
+							]
+						},
+						"description": "**Descripción:**  \nCrea un nuevo servicio Datatech dentro del sistema SGGM.  \n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `admin`, `rrhh`.\n\n**URL:**  \n```\nPOST {{base_url}}/servicios-dtt\n```\n\n**Cuerpo (JSON):**  \n| Campo | Tipo | Requerido | Valores válidos | Descripción |\n|--------|------|-----------|----------------|--------------|\n| SER | string | Sí | — | Código del servicio en Datatech (máx. 50 caracteres). |\n| DES | string | Sí | — | Descripción del servicio (máx. 255 caracteres). |\n| ACT | string | Sí | `\"S\"` o `\"N\"` | Indica si el servicio está activo o no. |\n\n**Ejemplo de cuerpo:**  \n```json\n{\n  \"SER\": \"in\",\n  \"DES\": \"Internación Cinco Saltos\",\n  \"ACT\": \"S\"\n}\n```\n\n**Respuestas:**  \n- `201 Created`\n  ```json\n  {\n    \"ok\": true,\n    \"data\": {\n      \"SER\": \"in\",\n      \"DES\": \"Internación Cinco Saltos\",\n      \"ACT\": \"S\"\n    }\n  }\n  ```\n- `400 Bad Request` si falla la validación del esquema.  \n- `500 Internal Server Error` si ocurre un error en la creación.\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Modificación de los ServiciosDTT",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"SER\": \"GU\",\r\n  \"DES\":\"Guardias Adultos Cipolletti\",\r\n  \"ACT\":\"S\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/servicios-dtt/{{ID_SERVICIO_DTT}}",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"servicios-dtt",
+								"{{ID_SERVICIO_DTT}}"
+							]
+						},
+						"description": "**Descripción:**  \nActualiza completamente un servicio Datatech existente.  \n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** `admin`, `rrhh`.\n\n**URL:**  \n```\nPUT {{base_url}}/servicios-dtt/:id\n```\n\n**Parámetros de ruta:**  \n| Campo | Tipo | Requerido | Descripción |\n|-------|------|------------|-------------|\n| id | string | Sí | Código del servicio (`SER`). |\n\n**Cuerpo (JSON):**  \n| Campo | Tipo | Requerido | Valores válidos | Descripción |\n|--------|------|-----------|----------------|--------------|\n| SER | string | Sí | — | Código del servicio. |\n| DES | string | Sí | — | Descripción del servicio. |\n| ACT | string | Sí | `\"S\"` o `\"N\"` | Estado de actividad. |\n\n**Ejemplo de cuerpo:**  \n```json\n{\n  \"SER\": \"GU\",\n  \"DES\": \"Guardia Adultos Cipolletti\",\n  \"ACT\": \"S\"\n}\n```\n\n**Respuestas:**  \n- `200 OK`\n  ```json\n  {\n    \"ok\": true,\n    \"message\": \"Servicio actualizado\",\n    \"data\": {\n      \"SER\": \"gu\",\n      \"DES\": \"Guardia Adultos Cinco Saltos\",\n      \"ACT\": \"S\"\n    }\n  }\n  ```\n- `404 Not Found`\n  ```json\n  {\n    \"ok\": false,\n    \"error\": {\n      \"message\": \"Servicio no encontrado\",\n      \"detail\": \"No se encontró un servicio con el id gu\"\n    }\n  }\n  ```\n- `500 Internal Server Error` si ocurre un error durante la actualización."
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener un ServicioDtt",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"SER\": \"GAC002\",\r\n  \"DES\":\"Guardias Adultos 002\",\r\n  \"ACT\":\"S\"\r\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/servicios-dtt/{{ID_SERVICIO_DTT}}",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"servicios-dtt",
+								"{{ID_SERVICIO_DTT}}"
+							]
+						},
+						"description": "**Descripción:**  \nDevuelve la información detallada de un servicio Datatech por su identificador (`SER`).\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** cualquier usuario autenticado.\n\n**URL:**  \n```\nGET {{base_url}}/servicios-dtt/:id\n```\n\n**Parámetros de ruta:**  \n| Campo | Tipo | Requerido | Descripción |\n|-------|------|------------|-------------|\n| id | string | Sí | Código del servicio (`SER`) en Datatech. |\n\n**Respuestas:**  \n- `200 OK`\n  ```json\n  {\n    \"ok\": true,\n    \"data\": { \"SER\": \"CM01\", \"DES\": \"Clínica médica\", \"ACT\": \"S\" }\n  }\n  ```\n- `404 Not Found`\n  ```json\n  {\n    \"ok\": false,\n    \"error\": {\n      \"message\": \"Servicio no encontrado\",\n      \"detail\": \"No se encontró un servicio con el id CM01\"\n    }\n  }\n  ```\n- `500 Internal Server Error` si ocurre un error en la consulta.\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener todos los servicios",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"SER\": \"GAC002\",\r\n  \"DES\":\"Guardias Adultos 002\",\r\n  \"ACT\":\"S\"\r\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/servicios-dtt",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"servicios-dtt"
+							]
+						},
+						"description": "**Descripción:**  \nObtiene la lista completa de servicios Datatech disponibles.\n\n**Autenticación:** requiere **Bearer Token** (`{{jwt}}`).  \n**Roles permitidos:** cualquier usuario autenticado.\n\n**URL:**  \n```\nGET {{base_url}}/servicios-dtt\n```\n\n**Respuestas:**  \n- `200 OK`\n  ```json\n  {\n    \"ok\": true,\n    \"data\": [\n      { \"SER\": \"CM01\", \"DES\": \"Clínica médica\", \"ACT\": \"S\" },\n      { \"SER\": \"PED02\", \"DES\": \"Pediatría\", \"ACT\": \"S\" }\n    ]\n  }\n  ```\n- `401 Unauthorized` si falta o expira el token.  \n- `500 Internal Server Error` si ocurre un error durante la consulta.\n"
+					},
+					"response": []
+				}
+			],
+			"description": "El módulo **Servicios DTT** representa la tabla SRN.dbo.CLISER del Sistema Datatech (ERP). Esta entidad se creó para poder desarrollar la aplicación, pero cuando entre en producción será reemplazada por una conexión a la tabla real del Sistema Datatech, alojada en el servidor Microsoft SQL Server.\n\nCada servicio posee un código (`SER`), una descripción (`DES`) y un estado de actividad (`ACT`), que son los campos con los que interactuaremos en producción.\n\nNo se implementa el método DELETE porque esa operación es responsabilidad del ERP.\n\n## Convenciones comunes\n\n- Todas las respuestas siguen la estructura:\n    \n    ``` json\n    { \"ok\": true | false, \"data\"?: {}, \"message\"?: \"\", \"error\"?: {} }\n    \n     ```\n    \n- El campo `ACT` indica el estado del servicio:\n    - `\"S\"`: activo\n        \n    - `\"N\"`: inactivo\n        \n- Los códigos (`SER`) deben coincidir con los definidos en el Sistema Datatech."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "{{NOVEDAD_ID}}",
+			"value": ""
+		}
+	]
+}
