@@ -7,8 +7,20 @@ import usuarioRoutes from "./modules/usuario/usuario.route.js";
 import servicioRoutes from "./modules/servicio/servicio.route.js";
 import serviciodttroute from "./modules/ServicoDtt/servicioDtt.route.js";
 import { auditLogger } from "./middlewares/audit-logger.js";
+import rateLimit from "express-rate-limit";
 
 const app = express();
+
+const GeneralLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto de bloqueo
+  max: 100, // Máximo 100 intentos por IP cada minuto
+  message: {
+    status: 429,
+    message: 'Demasiados intentos de peticiones. Bloqueado por 1 minuto.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 app.set("trust proxy", true);  // Esto sirve para IPs reales tras proxy
 
@@ -25,11 +37,11 @@ app.set("port", envs.PORT);
 
 app.use(passport.initialize());          
 
-app.use("/api", profesionalRoutes);
-app.use("/api", novedadRoutes);
-app.use("/api", usuarioRoutes);
-app.use("/api", servicioRoutes);
-app.use("/api", serviciodttroute);
+app.use("/api", GeneralLimiter, profesionalRoutes);
+app.use("/api", GeneralLimiter, novedadRoutes);
+app.use("/api", GeneralLimiter, usuarioRoutes);
+app.use("/api", GeneralLimiter, servicioRoutes);
+app.use("/api", GeneralLimiter, serviciodttroute);
 
 
 // Endpoint para verificar si la aplicación está funcionado: /health
