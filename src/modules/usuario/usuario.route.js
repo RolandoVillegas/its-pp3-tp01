@@ -5,6 +5,10 @@ import { createUsuarioSchema } from './schema/usuario.schema.js';
 import { loginUsuario } from './schema/login.schema.js';
 import { register, login, findAll } from './usuario.controller.js';
 import authMiddleware from '../../middlewares/auth.middleware.js';
+// TP01 - Defensa DDoS para SGGM V01
+// Importación del controlador de CAPTCHA para implementar seguridad.
+import { loginCaptcha } from "./usuario-captcha.controller.js";
+import { loginCaptchaUsuario } from "./schema/login-captcha.schema.js";
 
 
 const usuarioRoutes = Router();
@@ -26,5 +30,10 @@ const protect = [authMiddleware];
 usuarioRoutes.post("/register", validate(createUsuarioSchema), register);
 usuarioRoutes.post("/login", loginLimiter, validate(loginUsuario), login);
 usuarioRoutes.get("/users", ...protect, findAll);
+
+// TP01 - Defensa DDoS para SGGM V01
+// Nuevas rutas para login con CAPTCHA
+usuarioRoutes.post("/login", loginLimiter, validate(loginUsuario), login);
+usuarioRoutes.post("/login-captcha", loginLimiter, validate(loginCaptchaUsuario), loginCaptcha);
 
 export default usuarioRoutes;

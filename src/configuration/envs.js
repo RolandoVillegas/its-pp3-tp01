@@ -16,6 +16,9 @@ const envsSchema = joi
     DB_HOST: joi.string().required(),
     JWT_SECRET: joi.string().min(10).required(),
     JWT_EXPIRES: joi.string().required(),
+    // Claves para Cloudflare Turnstile
+    TURNSTILE_SITE_KEY: joi.string().required(),
+    TURNSTILE_SECRET_KEY: joi.string().required(),
     // Fecha límite para la creación de servicios (ISO 8601). Ej: 2025-12-31T23:59:59.999Z
     NODE_ENV: joi
       .string()
@@ -42,5 +45,7 @@ export const envs = {
   DB_HOST: envVars.DB_HOST,
   JWT_SECRET: envVars.JWT_SECRET,
   JWT_EXPIRES: envVars.JWT_EXPIRES,
+  TURNSTILE_SITE_KEY: envVars.TURNSTILE_SITE_KEY,
+  TURNSTILE_SECRET_KEY: envVars.TURNSTILE_SECRET_KEY,
   NODE_ENV: envVars.NODE_ENV,
 };

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Login con CAPTCHA - SGGM V01 - TP01 Defensa DDoS</title>
+
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap");
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Rubik", Arial, sans-serif;
+      background: linear-gradient(135deg, #eef4ff 0%, #f7f9fc 45%, #e8f3ef 100%);
+      color: #1f2937;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 980px;
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .intro {
+      padding: 24px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 999px;
+      margin-bottom: 18px;
+    }
+
+    .intro h1 {
+      font-size: 40px;
+      line-height: 1.1;
+      margin: 0 0 16px;
+      color: #111827;
+    }
+
+    .intro p {
+      font-size: 17px;
+      line-height: 1.6;
+      margin: 0 0 12px;
+      color: #4b5563;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 18px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+      padding: 32px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      color: #111827;
+    }
+
+    .card .subtitle {
+      margin: 0 0 24px;
+      color: #6b7280;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #374151;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+
+    .captcha-box {
+      margin: 20px 0;
+      min-height: 70px;
+      display: flex;
+      align-items: center;
+    }
+
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 13px 16px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    button:active {
+      transform: scale(0.99);
+    }
+
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    #resultado {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 10px;
+      background: #f3f4f6;
+      color: #111827;
+      font-size: 13px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      display: none;
+    }
+
+    #resultado.visible {
+      display: block;
+    }
+
+    .ok {
+      border-left: 5px solid #16a34a;
+    }
+
+    .error {
+      border-left: 5px solid #dc2626;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #6b7280;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    @media (max-width: 850px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .intro {
+        text-align: center;
+        padding: 0;
+      }
+
+      .intro h1 {
+        font-size: 32px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <section class="intro">
+      <span class="badge">Prácticas Profesionalizantes III</span>
+
+      <h2>Trabajo Práctico N° 1</h2>
+      <h3>Defensa básica contra abuso y ataques tipo DDoS</h3>
+
+      <p>
+        Implementación de una mejora de seguridad mediante CAPTCHA con
+        Cloudflare Turnstile antes de procesar el inicio de sesión.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Login con CAPTCHA</h2>
+
+      <p class="subtitle">
+        Completá tus credenciales y validá el desafío de seguridad para continuar.
+      </p>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input
+            type="email"
+            id="email"
+            autocomplete="username"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="contraseña">Contraseña</label>
+          <input
+            type="password"
+            id="contraseña"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+
+        <div class="captcha-box">
+          <div
+            class="cf-turnstile"
+            data-sitekey="0x4AAAAAADMNpQwHaQ5CVSqT"
+            data-callback="onTurnstileSuccess"
+            data-expired-callback="onTurnstileExpired"
+            data-error-callback="onTurnstileError">
+          </div>
+        </div>
+
+        <button type="submit" id="btnIngresar">Ingresar</button>
+      </form>
+
+      <pre id="resultado"></pre>
+
+    </section>
+  </main>
+
+  <script>
+    let captchaToken = "";
+
+    function onTurnstileSuccess(token) {
+      captchaToken = token;
+    }
+
+    function onTurnstileExpired() {
+      captchaToken = "";
+      mostrarResultado({
+        ok: false,
+        message: "El token CAPTCHA expiró. Verificá nuevamente el CAPTCHA."
+      }, true);
+    }
+
+    function onTurnstileError() {
+      captchaToken = "";
+      mostrarResultado({
+        ok: false,
+        message: "No se pudo completar la verificación CAPTCHA."
+      }, true);
+    }
+
+    const form = document.getElementById("loginForm");
+    const resultado = document.getElementById("resultado");
+    const btnIngresar = document.getElementById("btnIngresar");
+
+    function mostrarResultado(data, esError = false) {
+      resultado.textContent = JSON.stringify(data, null, 2);
+      resultado.className = "visible " + (esError ? "error" : "ok");
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      if (!captchaToken) {
+        mostrarResultado({
+          ok: false,
+          message: "Primero debés completar la verificación CAPTCHA."
+        }, true);
+        return;
+      }
+
+      const email = document.getElementById("email").value;
+      const contraseña = document.getElementById("contraseña").value;
+
+      btnIngresar.disabled = true;
+      btnIngresar.textContent = "Validando...";
+
+      try {
+        const response = await fetch("/api/login-captcha", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email,
+            contraseña,
+            captchaToken
+          })
+        });
+
+        const data = await response.json();
+
+        mostrarResultado(data, !response.ok);
+      } catch (error) {
+        mostrarResultado({
+          ok: false,
+          message: "No se pudo conectar con la API.",
+          detail: error.message
+        }, true);
+      } finally {
+        btnIngresar.disabled = false;
+        btnIngresar.textContent = "Ingresar";
+
+        if (window.turnstile) {
+          turnstile.reset();
+          captchaToken = "";
+        }
+      }
+    });
+  </script>
+</body>
+</html>

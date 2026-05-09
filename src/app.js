@@ -33,6 +33,10 @@ app.use(auditLogger({
 
 
 app.use(express.json());
+// TP01 - Defensa DDoS para SGGM V01
+// Servir archivos estáticos desde la carpeta "public"
+// para alojar el formulario de login con CAPTCHA.
+app.use(express.static("public"));
 app.set("port", envs.PORT);
 
 app.use(passport.initialize());          
