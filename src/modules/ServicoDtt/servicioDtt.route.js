@@ -3,7 +3,7 @@ import { validate } from "../../middlewares/validator.middleware.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import authorize from "../../middlewares/authorize.middleware.js";
 import { servicioDttController } from "./servicioDtt.controller.js";
-import { createServicioDttSchema } from "./schema/ServicioDtt.schema.js";
+import { createServicioDttSchema } from "./schema/servicioDtt.schema.js";
 
 const serviciodttroute = Router();
 
